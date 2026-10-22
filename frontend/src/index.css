@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Cedarville+Cursive&family=Dancing+Script:wght@400..700&family=Give+You+Glory&family=Inter:wght@300;400;500;600;700&family=Kristi&family=Mr+De+Haviland&family=Norican&family=Reenie+Beanie&family=Satisfy&family=Stalemate&family=Zeyada&display=swap');
+@import "tailwindcss";
+
+:root {
+  --primary-color: #00BB88;
+  --primary-hover: #009e73;
+  --secondary-color: #2e384d;
+  --border-color: #e5e7eb;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f3f4f6;
+  color: #1f2937;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7cbd1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a6b1;
+}
+
+/* Subtle dot grid pattern for workspace background */
+.workspace-grid {
+  background-color: #f0f2f5;
+  background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Transparent pattern for image/signature preview */
+.checker-bg {
+  background-image: linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                    linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                    linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+}
+
+/* Handwriting font classes */
+.font-stalemate { font-family: 'Stalemate', cursive; }
+.font-caveat { font-family: 'Caveat', cursive; }
+.font-cedarville { font-family: 'Cedarville Cursive', cursive; }
+.font-dancing { font-family: 'Dancing Script', cursive; }
+.font-giveyouglory { font-family: 'Give You Glory', cursive; }
+.font-kristi { font-family: 'Kristi', cursive; }
+.font-mrdehaviland { font-family: 'Mr De Haviland', cursive; }
+.font-norican { font-family: 'Norican', cursive; }
+.font-reenie { font-family: 'Reenie Beanie', cursive; }
+.font-satisfy { font-family: 'Satisfy', cursive; }
+.font-zeyada { font-family: 'Zeyada', cursive; }
