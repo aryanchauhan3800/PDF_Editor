@@ -48,7 +48,7 @@ class AICommandRequest(BaseModel):
 def root():
     return {
         "status": "online",
-        "service": "Aryan Editor — Precision Clean-Room PDF Engine",
+        "service": "Aryan Editor - Precision Clean-Room PDF Engine",
         "docs": "/docs",
         "health": "/api/health",
         "version": "1.0.0"
