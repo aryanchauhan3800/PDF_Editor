@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Download, CheckCircle2, X, FileCheck, ArrowRight } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Download, CheckCircle2, X, FileCheck, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface ExportModalProps {
@@ -17,8 +17,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   downloadUrl,
   sizeBytes,
 }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
+      setErrorMsg(null);
+      setIsDownloading(false);
       // Fire celebratory confetti!
       confetti({
         particleCount: 70,
@@ -36,8 +41,50 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       ? `${(sizeBytes / 1024).toFixed(1)} KB`
       : `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
 
-  const humanFilename =
+  let humanFilename =
     filename.includes('_') ? filename.split('_').slice(1).join('_') : filename;
+  
+  // Ensure .pdf extension
+  if (!humanFilename.toLowerCase().endsWith('.pdf')) {
+    humanFilename += '.pdf';
+  }
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(downloadUrl);
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status} ${res.statusText}`);
+      }
+
+      const blob = await res.blob();
+      if (blob.size === 0) {
+        throw new Error('Downloaded PDF file is empty');
+      }
+
+      // Create a same-origin Blob URL so browser strictly honors download filename
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = humanFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up blob URL after delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    } catch (err: any) {
+      console.error('Blob download failed, falling back to direct URL navigation:', err);
+      setErrorMsg('Direct browser download initiated');
+      // Fallback: direct window.open
+      window.open(downloadUrl, '_blank');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-2xs p-4">
@@ -45,7 +92,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         <div className="p-4 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600"
+            className="p-1 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-gray-600 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -77,20 +124,33 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
           </div>
 
+          {errorMsg && (
+            <p className="text-xs text-amber-600">{errorMsg}</p>
+          )}
+
           {/* Action buttons */}
           <div className="pt-2 space-y-2">
-            <a
-              href={downloadUrl}
-              download={humanFilename}
-              className="w-full py-2.5 px-4 bg-[#00BB88] hover:bg-[#009e73] active:bg-[#008964] text-white rounded-xl text-xs sm:text-sm font-semibold shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="w-full py-2.5 px-4 bg-[#00BB88] hover:bg-[#009e73] active:bg-[#008964] disabled:opacity-75 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
-              <Download className="w-4 h-4" />
-              <span>Download PDF</span>
-            </a>
+              {isDownloading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Preparing Download...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </>
+              )}
+            </button>
 
             <button
               onClick={onClose}
-              className="w-full py-2 px-4 hover:bg-gray-100 text-gray-600 rounded-xl text-xs font-medium transition-colors"
+              className="w-full py-2 px-4 hover:bg-gray-100 text-gray-600 rounded-xl text-xs font-medium transition-colors cursor-pointer"
             >
               Continue Editing
             </button>

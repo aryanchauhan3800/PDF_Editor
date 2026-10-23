@@ -22,6 +22,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],
 )
 
 storage_path = os.environ.get("STORAGE_DIR", "backend_storage")
@@ -170,6 +171,7 @@ def export_pdf(payload: ExportRequest):
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 @app.get("/api/pdf/download/{filename}")
+@app.head("/api/pdf/download/{filename}")
 def download_pdf(filename: str):
     """Streams exported PDF with attachment header."""
     clean_name = os.path.basename(filename)
@@ -179,6 +181,9 @@ def download_pdf(filename: str):
     
     # Human-readable download name
     download_name = clean_name.split("_", 1)[-1] if "_" in clean_name else clean_name
+    if not download_name.lower().endswith(".pdf"):
+        download_name += ".pdf"
+
     return FileResponse(
         filepath,
         media_type="application/pdf",

@@ -1,6 +1,18 @@
 import { DocumentInfo, PageConfig, EditorElement } from './types';
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
+export const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
+
+export function resolveApiUrl(path: string): string {
+  if (!path) return path;
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  if (API_BASE.startsWith('http://') || API_BASE.startsWith('https://')) {
+    const origin = new URL(API_BASE).origin;
+    return `${origin}${path.startsWith('/') ? '' : '/'}${path}`;
+  }
+  return path;
+}
 
 export async function uploadPDF(file: File): Promise<{ session_id: string; filename: string; info: DocumentInfo }> {
   const formData = new FormData();
@@ -66,7 +78,11 @@ export async function exportPDF(payload: {
     throw new Error(err.detail || 'Export failed');
   }
 
-  return res.json();
+  const data = await res.json();
+  if (data.download_url) {
+    data.download_url = resolveApiUrl(data.download_url);
+  }
+  return data;
 }
 
 export async function sendAICommand(payload: {
