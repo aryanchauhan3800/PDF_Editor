@@ -13,6 +13,10 @@ import {
   Plus,
   Palette,
   ChevronsUpDown,
+  MoveUp,
+  MoveDown,
+  MoveLeft,
+  MoveRight,
 } from 'lucide-react';
 import { EditorElement, TextElement, TextEditElement } from '../types';
 
@@ -36,18 +40,23 @@ const COLOR_PALETTE = [
 ];
 
 const FONT_FAMILIES = [
-  'Helvetica',
-  'Arial',
   'Times New Roman',
+  'Impact',
+  'Arial',
+  'Helvetica',
+  'Calibri',
+  'Cambria',
   'Georgia',
-  'Courier',
-  'Roboto',
-  'Inter',
   'Verdana',
   'Trebuchet MS',
+  'Courier New',
+  'Garamond',
+  'Palatino',
+  'Roboto',
+  'Open Sans',
 ];
 
-const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 21.12, 24, 28, 32, 36, 48, 72];
 
 const LINE_SPACINGS = [
   { label: 'Compact', value: 1.0 },
@@ -67,6 +76,10 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
   const isTextLike = element.type === 'text' || element.type === 'text_edit';
   const textEl = isTextLike ? (element as TextElement | TextEditElement) : null;
   const [sizeInput, setSizeInput] = useState<string>(textEl ? String(textEl.size) : '14');
+
+  const availableFonts = textEl?.font && !FONT_FAMILIES.includes(textEl.font)
+    ? [textEl.font, ...FONT_FAMILIES]
+    : FONT_FAMILIES;
 
   const handleSizeChange = (valStr: string) => {
     setSizeInput(valStr);
@@ -99,10 +112,10 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
             <select
               value={textEl.font || 'Helvetica'}
               onChange={(e) => onUpdateElement({ ...textEl, font: e.target.value })}
-              className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-gray-50/80 hover:bg-white focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer max-w-[110px] truncate"
+              className="border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-gray-50/80 hover:bg-white focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer max-w-[125px] truncate"
               title="Font Family"
             >
-              {FONT_FAMILIES.map((f) => (
+              {availableFonts.map((f) => (
                 <option key={f} value={f} style={{ fontFamily: f }}>
                   {f}
                 </option>
@@ -297,6 +310,38 @@ export const FloatingToolbar: React.FC<FloatingToolbarProps> = ({
                 className="opacity-0 absolute inset-0 cursor-pointer w-full h-full"
               />
             </label>
+          </div>
+
+          {/* 7. Sub-pixel Precision Position Nudge (0.5pt) */}
+          <div className="flex items-center gap-0.5 border-l border-gray-200 pl-1.5" title="Precision Nudge (0.5pt steps)">
+            <button
+              onClick={() => onUpdateElement({ ...element, y: Math.round((element.y - 0.5) * 10) / 10 })}
+              className="p-1 hover:bg-gray-100 text-gray-500 hover:text-gray-900 rounded cursor-pointer transition-colors"
+              title="Nudge Up 0.5pt"
+            >
+              <MoveUp className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => onUpdateElement({ ...element, y: Math.round((element.y + 0.5) * 10) / 10 })}
+              className="p-1 hover:bg-gray-100 text-gray-500 hover:text-gray-900 rounded cursor-pointer transition-colors"
+              title="Nudge Down 0.5pt"
+            >
+              <MoveDown className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => onUpdateElement({ ...element, x: Math.round((element.x - 0.5) * 10) / 10 })}
+              className="p-1 hover:bg-gray-100 text-gray-500 hover:text-gray-900 rounded cursor-pointer transition-colors"
+              title="Nudge Left 0.5pt"
+            >
+              <MoveLeft className="w-3 h-3" />
+            </button>
+            <button
+              onClick={() => onUpdateElement({ ...element, x: Math.round((element.x + 0.5) * 10) / 10 })}
+              className="p-1 hover:bg-gray-100 text-gray-500 hover:text-gray-900 rounded cursor-pointer transition-colors"
+              title="Nudge Right 0.5pt"
+            >
+              <MoveRight className="w-3 h-3" />
+            </button>
           </div>
         </>
       )}

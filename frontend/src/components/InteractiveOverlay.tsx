@@ -38,33 +38,97 @@ interface InteractiveOverlayProps {
 }
 
 const getFontFamily = (font?: string) => {
-  if (!font) return 'Helvetica, Arial, -apple-system, BlinkMacSystemFont, sans-serif';
+  if (!font) return '"Helvetica Neue", Helvetica, Arial, -apple-system, BlinkMacSystemFont, sans-serif';
   const fl = font.toLowerCase();
-  if (fl.includes('times') || fl.includes('roman') || fl.includes('serif')) {
-    return '"Times New Roman", Times, "Liberation Serif", serif';
+  if (fl.includes('impact')) {
+    return 'Impact, "Arial Black", "Trebuchet MS", sans-serif';
   }
-  if (fl.includes('courier') || fl.includes('mono')) {
-    return '"Courier New", Courier, monospace';
+  if (fl.includes('times') || fl.includes('roman') || fl.includes('serif')) {
+    return '"Times New Roman", Times, "Nimbus Roman No9 L", "Liberation Serif", serif';
+  }
+  if (fl.includes('courier') || fl.includes('mono') || fl.includes('consolas')) {
+    return '"Courier New", Courier, Consolas, "Liberation Mono", monospace';
   }
   if (fl.includes('georgia')) {
-    return 'Georgia, serif';
+    return 'Georgia, "Times New Roman", serif';
   }
-  return `"${font}", Helvetica, Arial, sans-serif`;
+  if (fl.includes('cambria')) {
+    return 'Cambria, Georgia, serif';
+  }
+  if (fl.includes('garamond')) {
+    return 'Garamond, "EB Garamond", Georgia, serif';
+  }
+  if (fl.includes('palatino')) {
+    return '"Palatino Linotype", Palatino, "Book Antiqua", serif';
+  }
+  if (fl.includes('calibri')) {
+    return 'Calibri, "Carlito", "Segoe UI", Arial, sans-serif';
+  }
+  if (fl.includes('verdana')) {
+    return 'Verdana, Geneva, sans-serif';
+  }
+  if (fl.includes('trebuchet')) {
+    return '"Trebuchet MS", "Lucida Grande", sans-serif';
+  }
+  if (fl.includes('tahoma')) {
+    return 'Tahoma, Geneva, sans-serif';
+  }
+  if (fl.includes('roboto')) {
+    return 'Roboto, "Helvetica Neue", Arial, sans-serif';
+  }
+  if (fl.includes('open sans')) {
+    return '"Open Sans", "Helvetica Neue", Arial, sans-serif';
+  }
+  if (fl.includes('lato')) {
+    return 'Lato, "Helvetica Neue", Arial, sans-serif';
+  }
+  if (fl.includes('arial')) {
+    return 'Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif';
+  }
+  if (fl.includes('helvetica')) {
+    return '"Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif';
+  }
+  return `"${font}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
+};
+
+const getFontAscenderRatio = (font?: string) => {
+  if (!font) return 0.74;
+  const fl = font.toLowerCase();
+  if (fl.includes('impact')) return 0.85;
+  if (fl.includes('times') || fl.includes('roman') || fl.includes('serif')) return 0.75;
+  if (fl.includes('courier') || fl.includes('mono') || fl.includes('consolas')) return 0.71;
+  if (fl.includes('georgia')) return 0.76;
+  if (fl.includes('cambria') || fl.includes('calibri') || fl.includes('palatino')) return 0.75;
+  if (fl.includes('verdana') || fl.includes('tahoma') || fl.includes('trebuchet')) return 0.74;
+  if (fl.includes('arial')) return 0.73;
+  if (fl.includes('helvetica')) return 0.72;
+  return 0.74;
 };
 
 /** Inline editable text component for text/text_edit elements */
 const EditableTextBox: React.FC<{
   element: TextElement | TextEditElement;
   isSelected: boolean;
+  initialClickCoords?: { clientX: number; clientY: number } | null;
   zoom: number;
   onSelect: () => void;
   onUpdateLive: (el: EditorElement) => void;
   onUpdateCommit: (el: EditorElement) => void;
   onStartMove: (e: React.MouseEvent) => void;
-}> = ({ element, isSelected, zoom, onSelect, onUpdateLive, onUpdateCommit, onStartMove }) => {
+}> = ({
+  element,
+  isSelected,
+  initialClickCoords,
+  zoom,
+  onSelect,
+  onUpdateLive,
+  onUpdateCommit,
+  onStartMove,
+}) => {
   const editRef = useRef<HTMLDivElement>(null);
   const isExistingEdit = element.type === 'text_edit';
   const isFocusedRef = useRef(false);
+  const isMouseDownRef = useRef(false);
   const lastCommittedTextRef = useRef(element.text);
 
   // Synchronize DOM text from props only when NOT actively typing or focused in this box
@@ -77,11 +141,45 @@ const EditableTextBox: React.FC<{
     }
   }, [element.text, element.id]);
 
-  // When selected, auto-focus and position caret at end if not already focused
+  // When selected, auto-focus and place caret at exact mouse coordinate
   useEffect(() => {
     if (isSelected && editRef.current) {
       if (document.activeElement !== editRef.current) {
         editRef.current.focus();
+      }
+
+      if (initialClickCoords) {
+        requestAnimationFrame(() => {
+          try {
+            if ((document as any).caretPositionFromPoint) {
+              const pos = (document as any).caretPositionFromPoint(
+                initialClickCoords.clientX,
+                initialClickCoords.clientY
+              );
+              if (pos && pos.offsetNode && editRef.current?.contains(pos.offsetNode)) {
+                const sel = window.getSelection();
+                const range = document.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+                range.collapse(true);
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+                return;
+              }
+            } else if ((document as any).caretRangeFromPoint) {
+              const range = (document as any).caretRangeFromPoint(
+                initialClickCoords.clientX,
+                initialClickCoords.clientY
+              );
+              if (range && editRef.current?.contains(range.startContainer)) {
+                const sel = window.getSelection();
+                sel?.removeAllRanges();
+                sel?.addRange(range);
+                return;
+              }
+            }
+          } catch (_) {}
+        });
+      } else if (!isMouseDownRef.current) {
         try {
           const selection = window.getSelection();
           const range = document.createRange();
@@ -95,7 +193,8 @@ const EditableTextBox: React.FC<{
     } else if (!isSelected) {
       isFocusedRef.current = false;
     }
-  }, [isSelected]);
+    isMouseDownRef.current = false;
+  }, [isSelected, initialClickCoords]);
 
   const handleInput = () => {
     if (editRef.current) {
@@ -128,7 +227,26 @@ const EditableTextBox: React.FC<{
     }
   };
 
-  // Dimensions: exact tight bounds, ZERO vertical overflow, ZERO rounding
+  const textEditEl = isExistingEdit ? (element as TextEditElement) : null;
+  const fontAscenderRatio = getFontAscenderRatio(element.font);
+  const origBbox = textEditEl?.original_bbox || [
+    element.x,
+    element.y,
+    element.x + (element.width || 100),
+    element.y + (element.height || 20),
+  ];
+  const origBaselineY = textEditEl?.origin
+    ? textEditEl.origin[1]
+    : element.y + element.size * fontAscenderRatio;
+
+  // Exact sub-pixel baseline alignment:
+  // With CSS line-height: 1, baseline = textTop + (element.size * zoom * fontAscenderRatio).
+  // Therefore textTop = (origBaselineY - element.size * fontAscenderRatio) * zoom.
+  const textTop = isExistingEdit
+    ? (origBaselineY - element.size * fontAscenderRatio) * zoom
+    : element.y * zoom;
+  const textLeft = element.x * zoom;
+
   const bboxW = isExistingEdit
     ? (element as TextEditElement).width
     : element.width || Math.max(40, element.text.length * element.size * 0.55);
@@ -136,114 +254,117 @@ const EditableTextBox: React.FC<{
     ? (element as TextEditElement).height
     : element.height || element.size * 1.15;
 
-  // Sejda-grade exact baseline matching:
-  // In PDF font metrics, origin_y is the baseline. With CSS line-height: 1,
-  // fontBaselineOffset = size * ascender. We calculate the exact paddingTop
-  // so the HTML text sits at the identical pixel baseline as the PDF background.
-  const textEditEl = isExistingEdit ? (element as TextEditElement) : null;
-  const ascender = textEditEl?.ascender ?? 0.8;
-  const originalBaselineY = textEditEl?.origin ? textEditEl.origin[1] : (element.y + element.size * ascender);
-  const targetBaselineOffset = (originalBaselineY - element.y) * zoom;
-  const fontBaselineOffset = element.size * ascender * zoom;
-  const paddingTop = isExistingEdit ? Math.max(0, targetBaselineOffset - fontBaselineOffset) : 0;
-
   return (
-    <div
-      onMouseDown={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      className={`interactive-element absolute select-text z-20 ${
-        isExistingEdit ? 'bg-white' : ''
-      }`}
-      style={{
-        left: `${element.x * zoom}px`,
-        top: `${element.y * zoom}px`,
-        minWidth: `${bboxW * zoom}px`,
-        height: `${bboxH * zoom}px`,
-        // Completely flat and seamless: NO rounded corners, NO shadows, NO thick borders
-        borderRadius: '0px',
-        boxShadow: 'none',
-        outline: isSelected ? '1px dashed #2563eb' : 'none',
-        outlineOffset: '0px',
-        padding: '0px',
-        margin: '0px',
-      }}
-    >
-      {/* Discreet reposition handle on the left margin, NEVER overlapping adjacent lines */}
-      {isSelected && (
+    <>
+      {/* 1. Opaque Whiteout Backing Patch: conceals underlying PDF raster text with sub-pixel margin */}
+      {isExistingEdit && textEditEl?.original_bbox && (
         <div
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            onStartMove(e);
+          className="absolute pointer-events-none select-none bg-white z-15"
+          style={{
+            left: `${Math.floor((origBbox[0] - 0.5) * zoom)}px`,
+            top: `${Math.floor((origBbox[1] - 0.5) * zoom)}px`,
+            width: `${Math.ceil((origBbox[2] - origBbox[0] + 1.0) * zoom)}px`,
+            height: `${Math.ceil((origBbox[3] - origBbox[1] + 1.0) * zoom)}px`,
           }}
-          className="absolute -left-5 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xs flex items-center justify-center cursor-move shadow-xs z-30 transition-colors"
-          title="Drag to reposition text"
-        >
-          <GripVertical className="w-2.5 h-2.5" />
-        </div>
+        />
       )}
 
-      {/* ContentEditable area - seamless inline text matching exact PDF font baseline */}
+      {/* 2. Seamless Inline ContentEditable Element */}
       <div
-        ref={editRef}
-        contentEditable={true}
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onFocus={() => {
-          isFocusedRef.current = true;
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          isMouseDownRef.current = true;
           onSelect();
         }}
-        onBlur={handleBlur}
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.stopPropagation();
           onSelect();
         }}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
+        className="interactive-element absolute select-text z-20"
         style={{
-          fontSize: `${element.size * zoom}px`,
-          fontFamily: getFontFamily(element.font),
-          color: element.color,
-          fontWeight: element.bold ? 700 : 400,
-          fontStyle: element.italic ? 'italic' : 'normal',
-          textDecoration: `${element.underline ? 'underline' : ''} ${element.strikethrough ? 'line-through' : ''}`.trim() || 'none',
-          textAlign: element.align || 'left',
-          lineHeight: isExistingEdit ? 1 : 1.2,
-          paddingTop: `${paddingTop}px`,
-          paddingBottom: 0,
-          paddingLeft: 0,
-          paddingRight: 0,
-          letterSpacing: element.letter_spacing ? `${element.letter_spacing * zoom}px` : 'normal',
-          opacity: element.opacity !== undefined ? element.opacity : 1,
-          margin: 0,
-          width: '100%',
-          height: '100%',
-          outline: 'none',
-          border: 'none',
+          left: `${textLeft}px`,
+          top: `${textTop}px`,
+          minWidth: `${bboxW * zoom}px`,
+          minHeight: `${element.size * zoom}px`,
+          boxSizing: 'border-box',
+          borderRadius: '0px',
+          boxShadow: 'none',
+          outline: isSelected ? '1px dashed #2563eb' : 'none',
+          outlineOffset: '1px',
+          padding: '0px',
+          margin: '0px',
           background: 'transparent',
-          cursor: 'text',
-          whiteSpace: 'pre',
-          wordBreak: 'normal',
-          caretColor: '#2563eb',
         }}
-        className="focus:outline-none"
-      />
+      >
+        {/* Discreet reposition handle on the left margin */}
+        {isSelected && (
+          <div
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onStartMove(e);
+            }}
+            className="absolute -left-5 top-1/2 -translate-y-1/2 w-4 h-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xs flex items-center justify-center cursor-move shadow-xs z-30 transition-colors"
+            title="Drag to reposition text"
+          >
+            <GripVertical className="w-2.5 h-2.5" />
+          </div>
+        )}
 
-      {/* Placeholder for empty new text */}
-      {element.type === 'text' && !element.text.trim() && !isSelected && (
+        {/* ContentEditable area - seamless inline text matching exact PDF font baseline */}
         <div
-          className="absolute inset-0 flex items-center text-gray-400 pointer-events-none italic select-none"
-          style={{ fontSize: `${element.size * zoom}px`, lineHeight: `${bboxH * zoom}px` }}
-        >
-          Type text...
-        </div>
-      )}
-    </div>
+          ref={editRef}
+          contentEditable={true}
+          suppressContentEditableWarning
+          onInput={handleInput}
+          onFocus={() => {
+            isFocusedRef.current = true;
+            onSelect();
+          }}
+          onBlur={handleBlur}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            isMouseDownRef.current = true;
+            onSelect();
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={handleKeyDown}
+          style={{
+            boxSizing: 'border-box',
+            fontSize: `${element.size * zoom}px`,
+            fontFamily: getFontFamily(element.font),
+            color: element.color,
+            fontWeight: element.bold ? 700 : 400,
+            fontStyle: element.italic ? 'italic' : 'normal',
+            textDecoration: `${element.underline ? 'underline' : ''} ${element.strikethrough ? 'line-through' : ''}`.trim() || 'none',
+            textAlign: element.align || 'left',
+            lineHeight: 1,
+            padding: 0,
+            letterSpacing: element.letter_spacing ? `${element.letter_spacing * zoom}px` : 'normal',
+            opacity: element.opacity !== undefined ? element.opacity : 1,
+            margin: 0,
+            width: '100%',
+            outline: 'none',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'text',
+            whiteSpace: 'pre',
+            wordBreak: 'normal',
+            caretColor: '#2563eb',
+          }}
+          className="focus:outline-none"
+        />
+
+        {/* Placeholder for empty new text */}
+        {element.type === 'text' && !element.text.trim() && !isSelected && (
+          <div
+            className="absolute inset-0 flex items-center text-gray-400 pointer-events-none italic select-none"
+            style={{ fontSize: `${element.size * zoom}px`, lineHeight: `${bboxH * zoom}px` }}
+          >
+            Type text...
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
@@ -285,6 +406,8 @@ export const InteractiveOverlay: React.FC<InteractiveOverlayProps> = ({
 
   // Track which text block IDs are being hovered
   const [hoveredBlockId, setHoveredBlockId] = useState<string | null>(null);
+  // Track initial click coordinates to place caret directly at the clicked character
+  const [initialClickCoords, setInitialClickCoords] = useState<{ clientX: number; clientY: number } | null>(null);
 
   const getPdfCoordinates = (e: React.MouseEvent): { x: number; y: number } => {
     if (!containerRef.current) return { x: 0, y: 0 };
@@ -495,7 +618,11 @@ export const InteractiveOverlay: React.FC<InteractiveOverlayProps> = ({
   };
 
   /** Convert a PDF text block to an editable text_edit element */
-  const handleEditTextBlock = (block: PageMeta['text_blocks'][0]) => {
+  const handleEditTextBlock = (
+    block: PageMeta['text_blocks'][0],
+    clickCoords?: { clientX: number; clientY: number }
+  ) => {
+    setInitialClickCoords(clickCoords || null);
     // Check if this block is already converted to an editable element
     const existing = elements.find(
       (el) =>
@@ -590,7 +717,7 @@ export const InteractiveOverlay: React.FC<InteractiveOverlayProps> = ({
               key={block.id}
               onMouseDown={(e) => {
                 e.stopPropagation();
-                handleEditTextBlock(block);
+                handleEditTextBlock(block, { clientX: e.clientX, clientY: e.clientY });
               }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -633,8 +760,12 @@ export const InteractiveOverlay: React.FC<InteractiveOverlayProps> = ({
               key={el.id}
               element={textEl}
               isSelected={isSelected}
+              initialClickCoords={isSelected ? initialClickCoords : null}
               zoom={zoom}
-              onSelect={() => onSelectElementId(el.id)}
+              onSelect={() => {
+                onSelectElementId(el.id);
+                setInitialClickCoords(null);
+              }}
               onUpdateLive={onUpdateElementLive}
               onUpdateCommit={onUpdateElement}
               onStartMove={(e) => {

@@ -172,6 +172,27 @@ export function App() {
       } else if (e.key === 'Escape') {
         setActiveTool('select');
         setSelectedElementId(null);
+      } else if (selectedElementId && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        const step = e.shiftKey ? 5 : e.altKey ? 0.2 : 0.5;
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+
+        setElements((prev) => {
+          const el = prev.find((item) => item.id === selectedElementId);
+          if (!el) return prev;
+          const updated = prev.map((item) =>
+            item.id === selectedElementId
+              ? {
+                  ...item,
+                  x: Math.round(Math.max(0, item.x + dx) * 10) / 10,
+                  y: Math.round(Math.max(0, item.y + dy) * 10) / 10,
+                }
+              : item
+          );
+          elementsRef.current = updated;
+          return updated;
+        });
       }
     };
 

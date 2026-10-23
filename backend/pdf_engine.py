@@ -6,11 +6,168 @@ vector drawing, signatures, images, whiteout, annotations, and export validation
 
 import os
 import io
+import re
 import base64
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
 import fitz  # PyMuPDF
 from PIL import Image
+
+def normalize_pdf_font(raw_font_name: str, flags: int = 0) -> Tuple[str, bool, bool, float]:
+    """
+    Cleans PDF font names (e.g. 'ABCDEF+Impact', 'Times New Roman,Bold', 'LiberationSerif-Italic', 'Calibri')
+    and extracts normalized font family, is_bold, is_italic, and ascender ratio.
+    """
+    if not raw_font_name:
+        return "Helvetica", False, False, 0.72
+
+    cleaned = re.sub(r'^[A-Z]{6}\+', '', raw_font_name).strip()
+    fn_low = cleaned.lower()
+
+    # PyMuPDF dict flags: bit 0: super, bit 1: italic, bit 2: serif, bit 3: mono, bit 4: bold
+    is_bold = bool(flags & 16) or any(w in fn_low for w in ["bold", "black", "heavy", "semibold", "bolder"])
+    is_italic = bool(flags & 2) or any(w in fn_low for w in ["italic", "oblique", "slanted"])
+    is_mono = bool(flags & 8) or any(w in fn_low for w in ["mono", "courier", "consolas", "typewriter"])
+    is_serif = bool(flags & 4) or any(w in fn_low for w in ["serif", "times", "roman", "georgia", "cambria", "palatino", "garamond"])
+
+    if "impact" in fn_low:
+        family = "Impact"
+        ascender = 0.85
+    elif "times" in fn_low or "roman" in fn_low or "nimbus" in fn_low:
+        family = "Times New Roman"
+        ascender = 0.75
+    elif "georgia" in fn_low:
+        family = "Georgia"
+        ascender = 0.76
+    elif "cambria" in fn_low:
+        family = "Cambria"
+        ascender = 0.75
+    elif "garamond" in fn_low:
+        family = "Garamond"
+        ascender = 0.74
+    elif "palatino" in fn_low or "antiqua" in fn_low:
+        family = "Palatino"
+        ascender = 0.75
+    elif "calibri" in fn_low or "carlito" in fn_low:
+        family = "Calibri"
+        ascender = 0.75
+    elif "courier" in fn_low or is_mono:
+        family = "Courier New"
+        ascender = 0.71
+    elif "consolas" in fn_low:
+        family = "Consolas"
+        ascender = 0.72
+    elif "verdana" in fn_low:
+        family = "Verdana"
+        ascender = 0.74
+    elif "trebuchet" in fn_low:
+        family = "Trebuchet MS"
+        ascender = 0.74
+    elif "tahoma" in fn_low:
+        family = "Tahoma"
+        ascender = 0.74
+    elif "roboto" in fn_low:
+        family = "Roboto"
+        ascender = 0.75
+    elif "open sans" in fn_low or "opensans" in fn_low:
+        family = "Open Sans"
+        ascender = 0.75
+    elif "lato" in fn_low:
+        family = "Lato"
+        ascender = 0.75
+    elif "arial" in fn_low or "liberationsans" in fn_low:
+        family = "Arial"
+        ascender = 0.73
+    elif "helvetica" in fn_low:
+        family = "Helvetica"
+        ascender = 0.72
+    elif is_serif:
+        family = "Times New Roman"
+        ascender = 0.75
+    else:
+        base_name = cleaned.split(",")[0].split("-")[0].strip()
+        family = base_name if len(base_name) > 2 else "Arial"
+        ascender = 0.73
+
+    return family, is_bold, is_italic, ascender
+
+def get_font_file_or_builtin(family: str, is_bold: bool, is_italic: bool) -> Tuple[Optional[str], Optional[str]]:
+    """Resolves font family to high-fidelity macOS system fontfile if present, or standard 14 PDF builtin."""
+    supp = "/System/Library/Fonts/Supplemental"
+    fam_low = family.lower()
+
+    fontfile = None
+    if "impact" in fam_low:
+        p = f"{supp}/Impact.ttf"
+        if os.path.exists(p):
+            fontfile = p
+    elif "times" in fam_low:
+        if is_bold and is_italic:
+            p = f"{supp}/Times New Roman Bold Italic.ttf"
+        elif is_bold:
+            p = f"{supp}/Times New Roman Bold.ttf"
+        elif is_italic:
+            p = f"{supp}/Times New Roman Italic.ttf"
+        else:
+            p = f"{supp}/Times New Roman.ttf"
+        if os.path.exists(p):
+            fontfile = p
+    elif "arial" in fam_low:
+        if is_bold and is_italic:
+            p = f"{supp}/Arial Bold Italic.ttf"
+        elif is_bold:
+            p = f"{supp}/Arial Bold.ttf"
+        elif is_italic:
+            p = f"{supp}/Arial Italic.ttf"
+        else:
+            p = f"{supp}/Arial.ttf"
+        if os.path.exists(p):
+            fontfile = p
+    elif "georgia" in fam_low:
+        if is_bold and is_italic:
+            p = f"{supp}/Georgia Bold Italic.ttf"
+        elif is_bold:
+            p = f"{supp}/Georgia Bold.ttf"
+        elif is_italic:
+            p = f"{supp}/Georgia Italic.ttf"
+        else:
+            p = f"{supp}/Georgia.ttf"
+        if os.path.exists(p):
+            fontfile = p
+    elif "verdana" in fam_low:
+        if is_bold and is_italic:
+            p = f"{supp}/Verdana Bold Italic.ttf"
+        elif is_bold:
+            p = f"{supp}/Verdana Bold.ttf"
+        elif is_italic:
+            p = f"{supp}/Verdana Italic.ttf"
+        else:
+            p = f"{supp}/Verdana.ttf"
+        if os.path.exists(p):
+            fontfile = p
+    elif "courier" in fam_low:
+        if is_bold and is_italic:
+            p = f"{supp}/Courier New Bold Italic.ttf"
+        elif is_bold:
+            p = f"{supp}/Courier New Bold.ttf"
+        elif is_italic:
+            p = f"{supp}/Courier New Italic.ttf"
+        else:
+            p = f"{supp}/Courier New.ttf"
+        if os.path.exists(p):
+            fontfile = p
+
+    if fontfile:
+        return fontfile, None
+
+    # Fallback to standard 14 PDF fonts
+    if "times" in fam_low or "georgia" in fam_low or "roman" in fam_low or "serif" in fam_low:
+        builtin = "tibi" if is_bold and is_italic else ("tibo" if is_bold else ("tiit" if is_italic else "tiro"))
+    elif "courier" in fam_low or "mono" in fam_low:
+        builtin = "cobi" if is_bold and is_italic else ("cobo" if is_bold else ("coit" if is_italic else "cour"))
+    else:
+        builtin = "hebi" if is_bold and is_italic else ("hebo" if is_bold else ("heit" if is_italic else "helv"))
+    return None, builtin
 
 class PDFEngine:
     def __init__(self, storage_dir: str = "storage"):
@@ -68,31 +225,19 @@ class PDFEngine:
                                 continue
 
                             font_name = s.get("font", "Helvetica")
-                            fn_low = font_name.lower()
                             flags = s.get("flags", 0)
-                            is_bold = "bold" in fn_low or bool(flags & 16)
-                            is_italic = "italic" in fn_low or bool(flags & 2)
-
-                            mapped_font = "Helvetica"
-                            if "times" in fn_low or "roman" in fn_low or bool(flags & 4):
-                                mapped_font = "Times New Roman"
-                            elif "courier" in fn_low or "mono" in fn_low or bool(flags & 8):
-                                mapped_font = "Courier"
-                            elif "arial" in fn_low:
-                                mapped_font = "Arial"
-                            elif "georgia" in fn_low:
-                                mapped_font = "Georgia"
+                            mapped_font, is_bold, is_italic, norm_ascent = normalize_pdf_font(font_name, flags)
 
                             int_c = s.get("color", 0)
                             r = (int_c >> 16) & 255
                             g = (int_c >> 8) & 255
                             b_c = int_c & 255
                             hex_c = f"#{r:02x}{g:02x}{b_c:02x}"
-                            size = round(s.get("size", 12), 1)
+                            size = round(s.get("size", 12), 2)
                             origin = s.get("origin", (s["bbox"][0], s["bbox"][3]))
-                            ascender = round(float(s.get("ascender", 0.8)), 3)
-                            descender = round(float(s.get("descender", -0.2)), 3)
                             s_bbox = [round(x, 2) for x in s["bbox"]]
+                            exact_ascent = norm_ascent
+                            exact_descent = round((s_bbox[3] - origin[1]) / max(1.0, size), 4) if size > 0 else 0.2
 
                             style_key = (mapped_font, size, is_bold, is_italic, hex_c)
 
@@ -106,8 +251,8 @@ class PDFEngine:
                                     "color": hex_c,
                                     "bbox": s_bbox,
                                     "origin": [round(origin[0], 2), round(origin[1], 2)],
-                                    "ascender": ascender,
-                                    "descender": descender,
+                                    "ascender": exact_ascent,
+                                    "descender": exact_descent,
                                     "style_key": style_key,
                                 }
                             else:
@@ -139,8 +284,8 @@ class PDFEngine:
                                         "color": hex_c,
                                         "bbox": s_bbox,
                                         "origin": [round(origin[0], 2), round(origin[1], 2)],
-                                        "ascender": ascender,
-                                        "descender": descender,
+                                        "ascender": exact_ascent,
+                                        "descender": exact_descent,
                                         "style_key": style_key,
                                     }
 
@@ -310,20 +455,22 @@ class PDFEngine:
                     if text.strip():
                         size = float(el.get("size", 12))
                         color = self.parse_hex_color(el.get("color", "#000000"))
-                        font_lower = el.get("font", "").lower()
-                        if "times" in font_lower or "georgia" in font_lower:
-                            fontname = "tibi" if el.get("bold") and el.get("italic") else ("tibo" if el.get("bold") else ("tiit" if el.get("italic") else "tiro"))
-                        elif "courier" in font_lower or "mono" in font_lower:
-                            fontname = "cobi" if el.get("bold") and el.get("italic") else ("cobo" if el.get("bold") else ("coit" if el.get("italic") else "cour"))
-                        else:
-                            fontname = "hebi" if el.get("bold") and el.get("italic") else ("hebo" if el.get("bold") else ("heit" if el.get("italic") else "helv"))
+                        font_family = el.get("font", "Helvetica")
+                        is_bold = bool(el.get("bold"))
+                        is_italic = bool(el.get("italic"))
+                        fontfile, builtin_fontname = get_font_file_or_builtin(font_family, is_bold, is_italic)
 
-                        try:
-                            font_obj = fitz.Font(fontname)
-                        except Exception:
-                            font_obj = fitz.Font("helv")
+                        if fontfile:
+                            try:
+                                font_obj = fitz.Font(fontfile=fontfile)
+                            except Exception:
+                                font_obj = fitz.Font(builtin_fontname or "helv")
+                                fontfile = None
+                        else:
+                            font_obj = fitz.Font(builtin_fontname or "helv")
 
                         x = float(el.get("x", bbox[0]))
+                        target_w = float(el.get("width", bbox[2] - bbox[0]))
                         orig_origin = el.get("origin")
                         if orig_origin and len(orig_origin) >= 2:
                             baseline_y = float(orig_origin[1])
@@ -349,7 +496,10 @@ class PDFEngine:
 
                             curr_baseline_y = baseline_y + (l_idx * size * line_height_mult)
                             point = fitz.Point(line_x, curr_baseline_y)
-                            page.insert_text(point, line_str, fontsize=size, fontname=fontname, color=color, overlay=True)
+                            if fontfile:
+                                page.insert_text(point, line_str, fontsize=size, fontfile=fontfile, color=color, overlay=True)
+                            else:
+                                page.insert_text(point, line_str, fontsize=size, fontname=builtin_fontname or "helv", color=color, overlay=True)
 
                             if has_underline:
                                 page.draw_line(
@@ -378,18 +528,19 @@ class PDFEngine:
                     target_w = float(el.get("width", 0)) or 150
                     size = float(el.get("size", 14))
                     color = self.parse_hex_color(el.get("color", "#000000"))
-                    font_lower = el.get("font", "").lower()
-                    if "times" in font_lower or "georgia" in font_lower:
-                        fontname = "tibi" if el.get("bold") and el.get("italic") else ("tibo" if el.get("bold") else ("tiit" if el.get("italic") else "tiro"))
-                    elif "courier" in font_lower or "mono" in font_lower:
-                        fontname = "cobi" if el.get("bold") and el.get("italic") else ("cobo" if el.get("bold") else ("coit" if el.get("italic") else "cour"))
-                    else:
-                        fontname = "hebi" if el.get("bold") and el.get("italic") else ("hebo" if el.get("bold") else ("heit" if el.get("italic") else "helv"))
+                    font_family = el.get("font", "Helvetica")
+                    is_bold = bool(el.get("bold"))
+                    is_italic = bool(el.get("italic"))
+                    fontfile, builtin_fontname = get_font_file_or_builtin(font_family, is_bold, is_italic)
 
-                    try:
-                        font_obj = fitz.Font(fontname)
-                    except Exception:
-                        font_obj = fitz.Font("helv")
+                    if fontfile:
+                        try:
+                            font_obj = fitz.Font(fontfile=fontfile)
+                        except Exception:
+                            font_obj = fitz.Font(builtin_fontname or "helv")
+                            fontfile = None
+                    else:
+                        font_obj = fitz.Font(builtin_fontname or "helv")
 
                     baseline_y = y + size * 0.85
                     align = el.get("align", "left")
@@ -411,7 +562,10 @@ class PDFEngine:
 
                         curr_baseline_y = baseline_y + (l_idx * size * line_height_mult)
                         point = fitz.Point(line_x, curr_baseline_y)
-                        page.insert_text(point, line_str, fontsize=size, fontname=fontname, color=color, overlay=True)
+                        if fontfile:
+                            page.insert_text(point, line_str, fontsize=size, fontfile=fontfile, color=color, overlay=True)
+                        else:
+                            page.insert_text(point, line_str, fontsize=size, fontname=builtin_fontname or "helv", color=color, overlay=True)
 
                         if has_underline:
                             page.draw_line(
