@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+test_artifacts/
+backend_storage/
+storage/
+.DS_Store

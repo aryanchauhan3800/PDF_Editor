@@ -1,6 +1,6 @@
 import { DocumentInfo, PageConfig, EditorElement } from './types';
 
-const API_BASE = '/api';
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || '/api';
 
 export async function uploadPDF(file: File): Promise<{ session_id: string; filename: string; info: DocumentInfo }> {
   const formData = new FormData();

@@ -24,7 +24,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-engine = PDFEngine(storage_dir="backend_storage")
+storage_path = os.environ.get("STORAGE_DIR", "backend_storage")
+engine = PDFEngine(storage_dir=storage_path)
 ai_assistant = AIAssistantEngine()
 
 # In-memory session store: session_id -> { filepath, filename, info }
@@ -192,4 +193,6 @@ def process_ai_command(payload: AICommandRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run("main:app", host=host, port=port)
