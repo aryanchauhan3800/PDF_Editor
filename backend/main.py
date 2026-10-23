@@ -44,6 +44,16 @@ class AICommandRequest(BaseModel):
     elements: List[Dict[str, Any]]
     default_signature: Optional[str] = None
 
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": "Aryan Editor — Precision Clean-Room PDF Engine",
+        "docs": "/docs",
+        "health": "/api/health",
+        "version": "1.0.0"
+    }
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "engine": "PyMuPDF", "version": "1.0.0"}
