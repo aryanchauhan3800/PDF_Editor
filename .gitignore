@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+venv/
+.pytest_cache/
+
+# Storage & Uploads
+backend_storage/
+storage/
+test_artifacts/engine_storage/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
