@@ -172,8 +172,8 @@ def export_pdf(payload: ExportRequest):
 
 @app.get("/api/pdf/download/{filename}")
 @app.head("/api/pdf/download/{filename}")
-def download_pdf(filename: str):
-    """Streams exported PDF with attachment header."""
+def download_pdf(filename: str, inline: bool = False):
+    """Streams exported PDF with attachment or inline header."""
     clean_name = os.path.basename(filename)
     filepath = os.path.join(engine.exports_dir, clean_name)
     if not os.path.exists(filepath):
@@ -184,10 +184,12 @@ def download_pdf(filename: str):
     if not download_name.lower().endswith(".pdf"):
         download_name += ".pdf"
 
+    disposition = "inline" if inline else "attachment"
     return FileResponse(
         filepath,
         media_type="application/pdf",
-        filename=download_name
+        filename=download_name,
+        content_disposition_type=disposition
     )
 
 @app.post("/api/ai/command")
